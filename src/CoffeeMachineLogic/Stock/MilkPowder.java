@@ -1,6 +1,6 @@
 package CoffeeMachineLogic.Stock;
 
-public class CoffeePowder implements Recourse {
+public class MilkPowder implements Recourse {
     private int stock = 1000;
     @Override
     public int getFillLevel() {

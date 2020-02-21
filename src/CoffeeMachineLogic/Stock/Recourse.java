@@ -1,6 +1,6 @@
 package CoffeeMachineLogic.Stock;
 
-public interface Recource {
+public interface Recourse {
     int getFillLevel();
     void refill();
     void take(int quantity);

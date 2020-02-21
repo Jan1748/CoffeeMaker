@@ -1,5 +1,5 @@
 package CoffeeMachineLogic.Stock;
 
 public enum StockEnum {
-    COFFEEPOWDER
+    COFFEEPOWDER, MILKPOWDER, SUGARCUBES, WATER
 }

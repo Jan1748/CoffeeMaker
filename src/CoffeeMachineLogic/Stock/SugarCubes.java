@@ -1,7 +1,7 @@
 package CoffeeMachineLogic.Stock;
 
-public class CoffeePowder implements Recourse {
-    private int stock = 1000;
+public class SugarCubes implements Recourse {
+    private int stock = 100;
     @Override
     public int getFillLevel() {
         return stock;
@@ -9,7 +9,7 @@ public class CoffeePowder implements Recourse {
 
     @Override
     public void refill() {
-        stock = 1000;
+        stock = 100;
     }
 
     @Override
