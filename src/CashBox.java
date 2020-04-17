@@ -1,10 +1,92 @@
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.Set;
+
+class CoinContainer {
+    private HashMap<CoinType, Integer> coins = new HashMap<>();
+
+    public CoinContainer() {}
+
+    public CoinContainer(HashMap<CoinType, Integer> coins) {
+        this.coins = coins;
+    }
+
+    public void clear() {
+        this.coins.clear();
+    }
+
+    public Set<CoinType> getCoinTypes() {
+        return this.coins.keySet();
+    }
+
+    public CoinContainer getClone() {
+        return new CoinContainer((HashMap<CoinType, Integer>) this.coins.clone());
+    }
+
+    public void add(CoinContainer other) {
+        for (CoinType coinType : other.getCoinTypes()) {
+            this.addCoins(coinType, other.getCoinCount(coinType));
+        }
+    }
+
+    public void subtract(CoinContainer other) {
+        for (CoinType coinType : other.getCoinTypes()) {
+            this.removeCoins(coinType, other.getCoinCount(coinType));
+        }
+    }
+
+    public CoinContainer getCoinsForValue(float value) {
+        return null;
+    }
+
+    public float getTotalValue() {
+        float value = 0;
+        for (CoinType coinType : this.coins.keySet()) {
+            value += this.coins.get(coinType);
+        }
+
+        return value;
+    }
+
+    public int getCoinCount(CoinType coinType) {
+        Integer count = this.coins.get(coinType);
+        if (count == null) {
+            count = 0;
+        }
+
+        return count;
+    }
+
+    public void addCoins(CoinType coinType, int count) {
+        Integer existing = this.coins.get(coinType);
+        if (existing == null) {
+            existing = 0;
+        }
+
+        this.coins.put(coinType, existing + count);
+    }
+
+    public void removeCoins(CoinType coinType, int count) {
+        Integer existing = this.coins.get(coinType);
+        if (existing == null) {
+            existing = 0;
+        }
+
+        this.coins.put(coinType, existing - count);
+    }
+
+    public void setCoins(CoinType coinType, int count) {
+        this.coins.put(coinType, count);
+    }
+}
+
 
 public class CashBox {
-    private HashMap<CoinType, Float> coinValues = new HashMap<>();
+    // Use a linked hashmap to maintain insertion order
+    private HashMap<CoinType, Float> coinValues = new LinkedHashMap<>();
 
-    private HashMap<CoinType, Integer> change = new HashMap<>();
-    private HashMap<CoinType, Integer> input = new HashMap<>();
+    private CoinContainer change = new CoinContainer();
+    private CoinContainer input = new CoinContainer();
 
     public CashBox() {
         this.coinValues.put(CoinType.TWOEURO, 2.0f);
@@ -14,42 +96,79 @@ public class CashBox {
         this.coinValues.put(CoinType.TENCENT, 0.1f);
     }
 
-    private HashMap<CoinType, Integer> getChange(float amount) {
-        return null;
+    private CoinContainer getCoinsForValue(CoinContainer coins, float value) {
+        // Modifies the passed coin container!
+
+        CoinContainer resultingCoins = new CoinContainer();
+
+        while (value > 0) {
+            CoinType[] coinOrder = new CoinType[] {
+                    CoinType.TWOEURO,
+                    CoinType.ONEEURO,
+                    CoinType.FIFTYCENT,
+                    CoinType.TWENTYCENT,
+                    CoinType.TENCENT
+            };
+
+            for (CoinType coinType : coinOrder) {
+                float coinValue = this.coinValues.get(coinType);
+                if (value >= coinValue && coins.getCoinCount(coinType) > 0) {
+                    value -= coinValue;
+                    coins.removeCoins(coinType, 1);
+                    resultingCoins.addCoins(coinType, 1);
+                    break;
+                }
+
+                // No coin for the lowest coin value; no possible result
+                if (coinType == coinOrder[coinOrder.length - 1]) {
+                    return null;
+                }
+            }
+        }
+
+        return resultingCoins;
     }
 
-    public boolean canProcess(Composition composition) {
-        return true;
+    public boolean hasSufficientInput(Composition composition) {
+        float inputValue = this.input.getTotalValue();
+        return inputValue >= composition.getPrice();
     }
 
-    public HashMap<CoinType, Integer> process(Composition composition) {
-        // returns change
-        return null;
+    public boolean hasSufficientChange(Composition composition) {
+        float inputValue = this.input.getTotalValue();
+        float toReturn = inputValue - composition.getPrice();
+
+        // Input can also be used as change
+        CoinContainer totalChange = this.change.getClone();
+        totalChange.add(this.input);
+
+        CoinContainer returnChange = this.getCoinsForValue(totalChange, toReturn);
+        return returnChange != null;
     }
 
-    public HashMap<CoinType, Integer> returnInput() {
+    public CoinContainer process(Composition composition) {
+        float inputValue = this.input.getTotalValue();
+        float toReturn = inputValue - composition.getPrice();
+
+        // Move over the input to the change
+        this.change.add(this.input);
+        this.input.clear();
+
+        return this.getCoinsForValue(this.change, toReturn);
+    }
+
+    public CoinContainer returnInput() {
         // return and clear current input
-        HashMap<CoinType, Integer> currentInput = this.input;
-        this.input = new HashMap<>();
+        CoinContainer currentInput = this.input;
+        this.input = new CoinContainer();
         return currentInput;
     }
 
-    public void addChange(CoinType coinType, int count) {
-        Integer existing = this.change.get(coinType);
-        if (existing == null) {
-            existing = 0;
-        }
-
-        this.change.put(coinType, existing + count);
-        System.out.println(this.change);
+    public CoinContainer getChange() {
+        return change;
     }
 
-    public void addInput(CoinType coinType, int count) {
-        Integer existing = this.input.get(coinType);
-        if (existing == null) {
-            existing = 0;
-        }
-
-        this.input.put(coinType, existing + count);
+    public CoinContainer getInput() {
+        return input;
     }
 }
