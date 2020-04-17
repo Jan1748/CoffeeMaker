@@ -60,4 +60,16 @@ public class Composition {
     public void setExtraMilk(int extraMilk) {
         this.extraMilk = extraMilk;
     }
+
+    public int getTotalSugar() {
+        return this.drink.getNeededSugar() + this.getExtraSugar();
+    }
+
+    public int getTotalMilk() {
+        return this.drink.getNeededMilkPowder() + this.getExtraMilk();
+    }
+
+    public int getTotalCoffee() {
+        return this.drink.getNeededCoffeePowder();
+    }
 }

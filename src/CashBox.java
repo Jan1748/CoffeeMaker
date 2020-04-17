@@ -3,7 +3,7 @@ import java.util.LinkedHashMap;
 import java.util.Set;
 
 class CoinContainer {
-    private HashMap<CoinType, Integer> coins = new HashMap<>();
+    public HashMap<CoinType, Integer> coins = new HashMap<>();
 
     public CoinContainer() {}
 
