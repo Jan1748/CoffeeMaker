@@ -39,10 +39,10 @@ class CoinContainer {
         return null;
     }
 
-    public float getTotalValue() {
+    public float getTotalValue(HashMap<CoinType, Float> coinValues) {
         float value = 0;
         for (CoinType coinType : this.coins.keySet()) {
-            value += this.coins.get(coinType);
+            value += coinValues.get(coinType) * this.coins.get(coinType);
         }
 
         return value;
@@ -130,12 +130,12 @@ public class CashBox {
     }
 
     public boolean hasSufficientInput(Composition composition) {
-        float inputValue = this.input.getTotalValue();
+        float inputValue = this.input.getTotalValue(this.coinValues);
         return inputValue >= composition.getPrice();
     }
 
     public boolean hasSufficientChange(Composition composition) {
-        float inputValue = this.input.getTotalValue();
+        float inputValue = this.input.getTotalValue(this.coinValues);
         float toReturn = inputValue - composition.getPrice();
 
         // Input can also be used as change
@@ -147,7 +147,7 @@ public class CashBox {
     }
 
     public CoinContainer process(Composition composition) {
-        float inputValue = this.input.getTotalValue();
+        float inputValue = this.input.getTotalValue(this.coinValues);
         float toReturn = inputValue - composition.getPrice();
 
         // Move over the input to the change

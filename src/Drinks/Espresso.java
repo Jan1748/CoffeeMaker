@@ -1,9 +1,33 @@
 package Drinks;
 
-public class Espresso extends Drink {
-    private String name = "Coffee";
-    private float price = 1.5f;
+public class Espresso implements Drink {
+    @Override
+    public String getName() {
+        return "Espresso";
+    }
 
-    private int neededCoffeePowder = 10;
-    private int neededWater = 60;
+    @Override
+    public float getPrice() {
+        return 1.5f;
+    }
+
+    @Override
+    public int getNeededCoffeePowder() {
+        return 10;
+    }
+
+    @Override
+    public int getNeededMilkPowder() {
+        return 0;
+    }
+
+    @Override
+    public int getNeededWater() {
+        return 60;
+    }
+
+    @Override
+    public int getNeededSugar() {
+        return 0;
+    }
 }

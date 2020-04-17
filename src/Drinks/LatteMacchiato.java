@@ -1,10 +1,33 @@
 package Drinks;
 
-public class LatteMacchiato extends Drink {
-    private String name = "Latte Macchiato";
-    private float price = 3.0f;
+public class LatteMacchiato implements Drink {
+    @Override
+    public String getName() {
+        return "Latte Macchiato";
+    }
 
-    private int neededCoffeePowder = 10;
-    private int neededMilkPowder = 40;
-    private int neededWater = 300;
+    @Override
+    public float getPrice() {
+        return 3.0f;
+    }
+
+    @Override
+    public int getNeededCoffeePowder() {
+        return 10;
+    }
+
+    @Override
+    public int getNeededMilkPowder() {
+        return 40;
+    }
+
+    @Override
+    public int getNeededWater() {
+        return 300;
+    }
+
+    @Override
+    public int getNeededSugar() {
+        return 0;
+    }
 }

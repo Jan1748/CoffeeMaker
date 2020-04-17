@@ -11,10 +11,12 @@ public class Composition {
     private int extraSugar = 0; // in cubes
     private int extraMilk = 0; // in gram
 
-    public Composition() {
+    public Composition(Drink drink) {
         this.sizeMultipliers.put(DrinkSize.SMALL, 1.0f);
         this.sizeMultipliers.put(DrinkSize.MEDIUM, 1.25f);
         this.sizeMultipliers.put(DrinkSize.LARGE, 1.5f);
+
+        this.drink = drink;
     }
 
     public float getPrice() {
