@@ -67,7 +67,7 @@ public class Composition {
     }
 
     public int getTotalMilk() {
-        return this.drink.getNeededMilkPowder() + this.getExtraMilk();
+        return this.drink.getNeededMilkPowder() + (this.getExtraMilk() * 10);
     }
 
     public int getTotalCoffee() {

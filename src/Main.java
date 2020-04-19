@@ -1,6 +1,4 @@
-import Drinks.Coffee;
-import Drinks.Drink;
-import Drinks.Espresso;
+import Drinks.*;
 import Enums.CoinType;
 import Enums.DrinkSize;
 import javafx.application.Application;
@@ -11,7 +9,11 @@ import javafx.beans.property.StringProperty;
 import javafx.beans.value.ObservableValue;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+import javafx.concurrent.Task;
+import javafx.concurrent.WorkerStateEvent;
+import javafx.event.EventHandler;
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.control.Button;
@@ -19,12 +21,16 @@ import javafx.scene.control.Label;
 import javafx.scene.control.Menu;
 import javafx.scene.control.MenuBar;
 import javafx.scene.image.ImageView;
+import javafx.scene.input.KeyCombination;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.*;
 import javafx.scene.media.Media;
 import javafx.scene.media.MediaPlayer;
 import javafx.scene.paint.Color;
+import javafx.scene.shape.Circle;
+import javafx.scene.shape.Rectangle;
 import javafx.scene.text.Font;
+import javafx.scene.text.TextAlignment;
 import javafx.stage.Stage;
 
 import java.util.LinkedHashMap;
@@ -32,11 +38,15 @@ import java.util.LinkedHashMap;
 public class Main extends Application {
     private Machine machine = new Machine();
 
-    private StringProperty priceDisplay = new SimpleStringProperty("0 €");
-    private StringProperty stateDisplay = new SimpleStringProperty("Beep Boop");
+    private Stage pStage;
 
-    private BooleanProperty greenLamp = new SimpleBooleanProperty(false);
-    private BooleanProperty orangeLamp = new SimpleBooleanProperty(false);
+    private StringProperty priceDisplayState = new SimpleStringProperty("0 €");
+    private StringProperty stateDisplayState = new SimpleStringProperty("Beep Boop");
+
+    private BooleanProperty greenLampState = new SimpleBooleanProperty(false);
+    private BooleanProperty orangeLampState = new SimpleBooleanProperty(false);
+    private BooleanProperty machineReadyState = new SimpleBooleanProperty(true);
+    private BooleanProperty makingCoffeeState = new SimpleBooleanProperty(false);
 
     private void playSound(String fileName) {
         Media sound = new Media(getClass().getResource("resources/" + fileName).toExternalForm());
@@ -44,19 +54,98 @@ public class Main extends Application {
         player.play();
     }
 
-    public void updatePriceDisplay() {
-        priceDisplay.set(machine.getComposition().getPrice() + " €");
+    private void setStateDisplayFor(String text, long time) {
+        String original = stateDisplayState.get();
+        stateDisplayState.set(text);
+        Task<Void> sleeper = new Task<Void>() {
+            @Override
+            protected Void call() throws Exception {
+                try {
+                    Thread.sleep(time);
+                } catch (InterruptedException e) {}
+                return null;
+            }
+        };
+        sleeper.setOnSucceeded(new EventHandler<WorkerStateEvent>() {
+            @Override
+            public void handle(WorkerStateEvent event) {
+                stateDisplayState.set(original);
+            }
+        });
+        new Thread(sleeper).start();
+    }
+
+    private void updateState() {
+        float inputValue = machine.getCashBox().getInput().getTotalValue(machine.getCashBox().getCoinValues());
+
+        if (!machine.getCashBox().hasSufficientChange(machine.getComposition())) {
+            stateDisplayState.set("--- Out of Change ---");
+            orangeLampState.set(true);
+            greenLampState.set(false);
+            machineReadyState.set(false);
+        } else if (!machine.getStock().canConsume(machine.getComposition())) {
+            stateDisplayState.set("--- Out of Stock ---");
+            orangeLampState.set(true);
+            greenLampState.set(false);
+            machineReadyState.set(false);
+        } else if (!machine.getCashBox().hasSufficientInput(machine.getComposition())) {
+            stateDisplayState.set("Insert Money: " + inputValue + " / " + machine.getComposition().getPrice() + "€");
+            orangeLampState.set(false);
+            greenLampState.set(false);
+            machineReadyState.set(false);
+        } else {
+            stateDisplayState.set("Press \"Start\" to get your coffee");
+            orangeLampState.set(false);
+            greenLampState.set(true);
+            machineReadyState.set(true);
+        }
+
+        priceDisplayState.set(machine.getComposition().getPrice() + " €");
+    }
+
+    public void handleFullScreenToggle(ObservableValue obs, boolean oldValue, boolean newValue) {
+        pStage.setFullScreen(newValue);
     }
 
     public void handleStartButtonClicked(MouseEvent t) {
-        System.out.println("asdas");
+        machine.getStock().consume(machine.getComposition());
+        CoinContainer returned = machine.getCashBox().process(machine.getComposition());
+        updateState();
+
+        stateDisplayState.set("Making your coffee ...");
+        makingCoffeeState.set(true);
+        playSound("coffee.mp3");
+
+        Task<Void> sleeper = new Task<Void>() {
+            @Override
+            protected Void call() throws Exception {
+                try {
+                    Thread.sleep(5000);
+                } catch (InterruptedException e) {}
+                return null;
+            }
+        };
+        sleeper.setOnSucceeded(new EventHandler<WorkerStateEvent>() {
+            @Override
+            public void handle(WorkerStateEvent event) {
+                float returnValue = returned.getTotalValue(machine.getCashBox().getCoinValues());
+                updateState();
+                makingCoffeeState.set(false);
+                if (returnValue > 0) {
+                    playSound("return.mp3");
+                    setStateDisplayFor("Returning " + returnValue + "€ to you.", 2000);
+                }
+            }
+        });
+        new Thread(sleeper).start();
     }
 
     public void handleCancelButtonClicked(MouseEvent t) {
         CoinContainer returned = machine.getCashBox().returnInput();
         float value = returned.getTotalValue(machine.getCashBox().getCoinValues());
+        updateState();
         if (value > 0) {
-            stateDisplay.set("Returning " + value + "€ to you.");
+            setStateDisplayFor("Returning " + value + "€ to you.", 2000);
             playSound("return.mp3");
         }
     }
@@ -64,28 +153,29 @@ public class Main extends Application {
     public void handleDrinkChanged(ObservableValue obs, String oldValue, String newValue) {
         Drink newDrink = machine.getAssortment().getDrinkByName(newValue);
         machine.getComposition().setDrink(newDrink);
-        updatePriceDisplay();
+        updateState();
     }
 
     public void handleSizeChanged(ObservableValue obs, String oldValue, String newValue) {
         DrinkSize size = DrinkSize.valueOf(newValue.toUpperCase());
         machine.getComposition().setDrinkSize(size);
-        updatePriceDisplay();
+        updateState();
     }
 
     public void handleSugarChanged(ObservableValue obs, Integer oldValue, Integer newValue) {
         machine.getComposition().setExtraSugar(newValue);
-        updatePriceDisplay();
+        updateState();
     }
 
     public void handleMilkChanged(ObservableValue obs, Integer oldValue, Integer newValue) {
         machine.getComposition().setExtraMilk(newValue);
-        updatePriceDisplay();
+        updateState();
     }
 
     public void handleCoinInserted(CoinType coin) {
         machine.getCashBox().getInput().addCoins(coin, 1);
         playSound("insert.mp3");
+        updateState();
     }
 
     public static void main(String[] args) {
@@ -95,7 +185,13 @@ public class Main extends Application {
     public void initMachine() {
         Drink[] drinks = new Drink[] {
                 new Coffee(),
-                new Espresso()
+                new Espresso(),
+                new Cappuccino(),
+                new LatteMacchiato(),
+                new MilkCoffee(),
+                new IceCoffee(),
+                new Gunfire(),
+                new CoffeeCorretto()
         };
 
         Assortment assortment = new Assortment(drinks);
@@ -121,21 +217,184 @@ public class Main extends Application {
         BorderPane root = new BorderPane();
 
         // --- Top Part ---
-        Menu helpMenu = new Menu("Help");
+        Menu fileMenu = new Menu("File");
+        CheckMenuItem fullScreenToggle = new CheckMenuItem("Fullscreen");
+        fullScreenToggle.selectedProperty().addListener(this::handleFullScreenToggle);
+        fileMenu.getItems().add(fullScreenToggle);
+
+
         Menu adminMenu = new Menu("Admin");
-        MenuBar menuBar = new MenuBar(helpMenu, adminMenu);
+        MenuItem refillStock = new MenuItem("Refill Stock");
+        refillStock.setOnAction(e -> {
+            machine.getStock().refill(1000, 1000, 100);
+            setStateDisplayFor("Refilled Stock successfully!", 2000);
+        });
+
+        MenuItem refillChange = new MenuItem("Refill Change");
+        refillChange.setOnAction(e -> {
+            CoinContainer change = machine.getCashBox().getChange();
+            change.addCoins(CoinType.TWOEURO, 10);
+            change.addCoins(CoinType.ONEEURO, 10);
+            change.addCoins(CoinType.FIFTYCENT, 10);
+            change.addCoins(CoinType.TWENTYCENT, 10);
+            change.addCoins(CoinType.TENCENT, 10);
+            setStateDisplayFor("Refilled Change successfully!", 2000);
+        });
+
+        adminMenu.getItems().addAll(refillStock, refillChange);
+
+        MenuBar menuBar = new MenuBar(fileMenu, adminMenu);
         root.setTop(menuBar);
 
         // --- Center Part ---
         GridPane displayGrid = new GridPane();
-        displayGrid.setBorder(new Border(new BorderStroke(Color.BLACK, BorderStrokeStyle.SOLID, CornerRadii.EMPTY, BorderWidths.DEFAULT)));
-        root.setCenter(displayGrid);
+        displayGrid.setHgap(10);
+        displayGrid.setVgap(25);
+        displayGrid.setPadding(new Insets(25));
+        displayGrid.setBorder(new Border(new BorderStroke(Color.BLACK, BorderStrokeStyle.SOLID, new CornerRadii(25), new BorderWidths(2), Insets.EMPTY)));
+        ColumnConstraints colCon = new ColumnConstraints();
 
-        Label display = new Label();
-        display.textProperty().bind(stateDisplay);
+        // 10 column layout
+        colCon.setPercentWidth(10);
+        displayGrid.getColumnConstraints().addAll(colCon, colCon, colCon, colCon, colCon, colCon, colCon, colCon, colCon, colCon);
 
-        VBox coffeeDisplay = new VBox(display);
+        Circle greenLamp = new Circle(25);
+        greenLamp.setFill(Color.DARKGREEN);
+        displayGrid.add(greenLamp, 0, 0, 2, 1);
+        this.greenLampState.addListener((obs, oldValue, newValue) -> {
+            if (newValue) {
+                greenLamp.setFill(Color.LIGHTGREEN);
+            } else {
+                greenLamp.setFill(Color.DARKGREEN);
+            }
+        });
+
+        Circle orangeLamp = new Circle(25);
+        orangeLamp.setFill(Color.DARKORANGE);
+        displayGrid.add(orangeLamp, 2, 0, 2, 1);
+        this.orangeLampState.addListener((obs, oldValue, newValue) -> {
+            if (newValue) {
+                orangeLamp.setFill(Color.YELLOW);
+            } else {
+                orangeLamp.setFill(Color.DARKORANGE);
+            }
+        });
+
+        Label priceDisplay = new Label();
+        priceDisplay.textProperty().bind(this.priceDisplayState);
+        priceDisplay.setFont(new Font(30));
+        priceDisplay.setPadding(new Insets(10));
+        priceDisplay.setBackground(new Background(new BackgroundFill(Color.LIGHTGRAY, CornerRadii.EMPTY, Insets.EMPTY)));
+        priceDisplay.setBorder(new Border(new BorderStroke(Color.BLACK, BorderStrokeStyle.SOLID, CornerRadii.EMPTY, BorderWidths.DEFAULT)));
+        displayGrid.add(priceDisplay, 7, 0, 3, 1);
+
+        VBox terminal = new VBox();
+        terminal.setPadding(new Insets(25));
+        terminal.setAlignment(Pos.CENTER);
+        terminal.setBackground(new Background(new BackgroundFill(Color.LIGHTGRAY, CornerRadii.EMPTY, Insets.EMPTY)));
+        terminal.setPrefWidth(Double.MAX_VALUE);
+        terminal.setBorder(new Border(new BorderStroke(Color.BLACK, BorderStrokeStyle.SOLID, CornerRadii.EMPTY, BorderWidths.DEFAULT)));
+        terminal.setSpacing(25);
+
+        Label stateDisplay = new Label();
+        stateDisplay.setWrapText(true);
+        stateDisplay.textProperty().bind(this.stateDisplayState);
+        stateDisplay.setFont(new Font(20));
+        stateDisplay.setTextFill(Color.WHITE);
+        stateDisplay.setTextAlignment(TextAlignment.JUSTIFY);
+        stateDisplay.setPadding(new Insets(5));
+        stateDisplay.prefWidthProperty().bind(terminal.widthProperty().multiply(0.8));
+        stateDisplay.setBackground(new Background(new BackgroundFill(Color.BLACK, CornerRadii.EMPTY, Insets.EMPTY)));
+
+        Label terminalTitle = new Label("Terminal");
+        terminalTitle.setFont(new Font(26));
+
+        terminal.getChildren().addAll(terminalTitle, stateDisplay);
+        displayGrid.add(terminal, 1, 1, 8, 1);
+
+        // Coffee Visualization
+        VBox visualization = new VBox();
+        visualization.setSpacing(15);
+
+        VBox topPart = new VBox();
+        topPart.setAlignment(Pos.CENTER);
+
+        Rectangle rec1 = new Rectangle();
+        rec1.widthProperty().bind(visualization.widthProperty().multiply(0.6));
+        rec1.setHeight(75);
+        rec1.setFill(Color.GRAY);
+        topPart.getChildren().add(rec1);
+
+        HBox rectContainer = new HBox();
+        rectContainer.setAlignment(Pos.CENTER);
+        rectContainer.setSpacing(40);
+
+        Rectangle rec2 = new Rectangle();
+        rec2.setFill(Color.GREY);
+        rec2.setWidth(20);
+        rec2.setHeight(40);
+        rectContainer.getChildren().add(rec2);
+
+        Rectangle rec3 = new Rectangle();
+        rec3.setFill(Color.GREY);
+        rec3.setWidth(20);
+        rec3.setHeight(40);
+        rectContainer.getChildren().add(rec3);
+
+        topPart.getChildren().add(rectContainer);
+
+        visualization.getChildren().add(topPart);
+
+        HBox centerPart = new HBox();
+        centerPart.setAlignment(Pos.CENTER);
+        centerPart.setSpacing(50);
+
+        Rectangle rec4 = new Rectangle();
+        rec4.setFill(Color.TRANSPARENT);
+        rec4.setWidth(10);
+        rec4.setHeight(120);
+        centerPart.getChildren().add(rec4);
+
+        Rectangle rec5 = new Rectangle();
+        rec5.setFill(Color.TRANSPARENT);
+        rec5.setWidth(10);
+        rec5.setHeight(120);
+        centerPart.getChildren().add(rec5);
+
+        makingCoffeeState.addListener((obs, oldValue, newValue) -> {
+            if (newValue) {
+                rec4.setFill(Color.SADDLEBROWN);
+                rec5.setFill(Color.SADDLEBROWN);
+            } else {
+                rec4.setFill(Color.TRANSPARENT);
+                rec5.setFill(Color.TRANSPARENT);
+            }
+        });
+
+        visualization.getChildren().add(centerPart);
+
+        VBox bottomPart = new VBox();
+        bottomPart.setAlignment(Pos.CENTER);
+
+        ImageView coffeeCup = new ImageView(getClass().getResource("./resources/coffee.png").toExternalForm());
+        coffeeCup.fitWidthProperty().bind(visualization.widthProperty().multiply(0.7));
+        coffeeCup.setPreserveRatio(true);
+        bottomPart.getChildren().add(coffeeCup);
+
+        Rectangle rec6 = new Rectangle();
+        rec6.widthProperty().bind(visualization.widthProperty().multiply(0.8));
+        rec6.setHeight(75);
+        rec6.setFill(Color.GRAY);
+        bottomPart.getChildren().add(rec6);
+
+        visualization.getChildren().add(bottomPart);
+
+        displayGrid.add(visualization, 1, 2, 8, 1);
+
+        StackPane coffeeDisplay = new StackPane(displayGrid);
         coffeeDisplay.prefWidthProperty().bind(root.widthProperty().multiply(0.7));
+        coffeeDisplay.setPadding(new Insets(20));
+        root.setCenter(coffeeDisplay);
 
         // --- Right Part ---
 
@@ -205,6 +464,7 @@ public class Main extends Application {
 
         // Confirmation
         Button startButton = new Button("Start");
+        startButton.disableProperty().bind(machineReadyState.not());
         startButton.addEventFilter(MouseEvent.MOUSE_CLICKED, this::handleStartButtonClicked);
         Button cancelButton = new Button("Cancel");
         cancelButton.addEventFilter(MouseEvent.MOUSE_CLICKED, this::handleCancelButtonClicked);
@@ -238,12 +498,19 @@ public class Main extends Application {
 
     @Override
     public void start(Stage primaryStage) throws Exception {
+        this.pStage = primaryStage;
         initMachine();
 
-        Scene mainScene = new Scene(buildLayout(), 720, 900);
+        Scene mainScene = new Scene(buildLayout(), 900, 1080);
+
+        primaryStage.setFullScreenExitKeyCombination(KeyCombination.NO_MATCH);
+        primaryStage.setFullScreenExitHint("Use the \"File\" menu to exit the fullscreen.");
+        primaryStage.setResizable(true);
 
         primaryStage.setTitle("Coffee Machine");
         primaryStage.setScene(mainScene);
         primaryStage.show();
+
+        updateState();
     }
 }

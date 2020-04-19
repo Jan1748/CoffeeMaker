@@ -115,7 +115,7 @@ public class CashBox {
             for (CoinType coinType : coinOrder) {
                 float coinValue = this.coinValues.get(coinType);
                 if (value >= coinValue && coins.getCoinCount(coinType) > 0) {
-                    value -= coinValue;
+                    value = Math.round((value - coinValue) * 10) / 10.0f;
                     coins.removeCoins(coinType, 1);
                     resultingCoins.addCoins(coinType, 1);
                     break;
@@ -138,7 +138,7 @@ public class CashBox {
 
     public boolean hasSufficientChange(Composition composition) {
         float inputValue = this.input.getTotalValue(this.coinValues);
-        float toReturn = inputValue - composition.getPrice();
+        float toReturn = Math.round((inputValue - composition.getPrice()) * 10) / 10.0f;
 
         // Input can also be used as change
         CoinContainer totalChange = this.change.getClone();
@@ -150,7 +150,7 @@ public class CashBox {
 
     public CoinContainer process(Composition composition) {
         float inputValue = this.input.getTotalValue(this.coinValues);
-        float toReturn = inputValue - composition.getPrice();
+        float toReturn = Math.round((inputValue - composition.getPrice()) * 10) / 10.0f;
 
         // Move over the input to the change
         this.change.add(this.input);
