@@ -10,4 +10,14 @@ public class Assortment {
     public Drink[] getDrinks() {
         return drinks;
     }
+
+    public Drink getDrinkByName(String name) {
+        for (Drink drink : this.drinks) {
+            if (drink.getName().equalsIgnoreCase(name)) {
+                return drink;
+            }
+        }
+
+        return null;
+    }
 }

@@ -3,8 +3,11 @@ public class Machine {
     private Stock stock;
     private CashBox cashBox;
 
+    private Composition composition;
+
     public void setAssortment(Assortment assortment) {
         this.assortment = assortment;
+        this.composition = new Composition(assortment.getDrinks()[0]);
     }
 
     public Assortment getAssortment() {
@@ -25,5 +28,9 @@ public class Machine {
 
     public CashBox getCashBox() {
         return cashBox;
+    }
+
+    public Composition getComposition() {
+        return composition;
     }
 }

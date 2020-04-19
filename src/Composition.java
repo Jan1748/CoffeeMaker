@@ -1,4 +1,5 @@
 import Drinks.Drink;
+import Enums.DrinkSize;
 
 import java.util.HashMap;
 
@@ -71,5 +72,13 @@ public class Composition {
 
     public int getTotalCoffee() {
         return this.drink.getNeededCoffeePowder();
+    }
+
+    public DrinkSize getDrinkSize() {
+        return drinkSize;
+    }
+
+    public void setDrinkSize(DrinkSize drinkSize) {
+        this.drinkSize = drinkSize;
     }
 }

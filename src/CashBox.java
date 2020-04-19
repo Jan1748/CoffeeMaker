@@ -1,3 +1,5 @@
+import Enums.CoinType;
+
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Set;
@@ -170,5 +172,9 @@ public class CashBox {
 
     public CoinContainer getInput() {
         return input;
+    }
+
+    public HashMap<CoinType, Float> getCoinValues() {
+        return coinValues;
     }
 }
